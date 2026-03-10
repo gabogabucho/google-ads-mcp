@@ -1,247 +1,200 @@
-# Google Ads MCP para Claude
+# google-ads-mcp
 
-Integración de Google Ads y GA4 directamente en Claude Desktop y Claude Code, basada en [AdLoop](https://github.com/kLOsk/adloop).
+Servidor MCP (Model Context Protocol) para gestionar Google Ads y Google Analytics 4 directamente desde **Claude Code** y **Claude Desktop**.
 
-## ¿Qué hace esto?
+> Escrito por [Gabriel Urrutia](https://x.com/gabogabucho).
+> Inspirado en [AdLoop](https://github.com/kLOsk/adloop) por kLOsk — reimplementación independiente optimizada para Claude con soporte nativo en Windows, macOS y Linux.
 
-Un servidor MCP (Model Context Protocol) que expone herramientas de Google Ads y Google Analytics 4 a Claude, permitiéndote:
+---
+
+## ¿Qué hace?
 
 - Analizar rendimiento de campañas, anuncios y keywords
 - Consultar términos de búsqueda y proponer negativos
-- Pausar/activar campañas, grupos y anuncios
+- Pausar / activar campañas, grupos y anuncios
 - Crear anuncios de búsqueda responsivos (RSA)
-- Agregar keywords y negative keywords
+- Agregar negative keywords
 - Ejecutar queries GAQL personalizadas
-- Consultar datos de GA4
+- Consultar reportes y usuarios en tiempo real de GA4
 
-Todo con un sistema de seguridad de 3 pasos: **draft → preview → confirm**.
+Todo con un sistema de seguridad **preview → confirm**: ningún cambio se aplica sin aprobación explícita.
 
 ---
 
 ## Requisitos
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) (gestor de paquetes Python)
-- Cuenta de Google Ads con acceso API
+- [uv](https://docs.astral.sh/uv/) (gestor de paquetes)
+- Cuenta de Google Ads con acceso a la API
 - Google Cloud Project con las APIs habilitadas
 
 ---
 
-## Instalación rápida
+## Instalación
 
-### 1. Clonar AdLoop
+### Windows (PowerShell)
 
-```bash
-git clone https://github.com/kLOsk/adloop.git ~/adloop
-cd ~/adloop
-uv sync
+```powershell
+git clone https://github.com/gabogabucho/google-ads-mcp.git
+cd google-ads-mcp
+powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-### 2. Configurar credenciales de Google
+### macOS / Linux (bash)
 
-#### 2a. Crear Google Cloud Project
-1. Ve a [console.cloud.google.com](https://console.cloud.google.com)
-2. Crea un nuevo proyecto
-3. Habilita las siguientes APIs:
+```bash
+git clone https://github.com/gabogabucho/google-ads-mcp.git
+cd google-ads-mcp
+bash install.sh
+```
+
+Los instaladores:
+1. Verifican Python, uv y git
+2. Crean el virtualenv e instalan dependencias
+3. Crean `~/.google-ads-mcp/config.yaml` desde el ejemplo
+4. Copian las Skills a `~/.claude/skills/`
+5. Muestran el snippet exacto para configurar Claude Desktop
+
+---
+
+## Configuración de Google
+
+### 1. Google Cloud Project
+1. Ve a [console.cloud.google.com](https://console.cloud.google.com) → crea un proyecto
+2. Habilita estas APIs:
    - **Google Ads API**
    - **Google Analytics Data API**
    - **Google Analytics Admin API**
 
-#### 2b. Crear credenciales OAuth 2.0
-1. En "APIs & Services" → "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
-2. Tipo: **Desktop Application**
-3. Descarga el JSON y guárdalo como `~/.adloop/credentials.json`
+### 2. Credenciales OAuth 2.0
+1. APIs & Services → Credentials → Create → **OAuth 2.0 Client ID**
+2. Application type: **Desktop app**
+3. Descarga el JSON → guárdalo como `~/.google-ads-mcp/credentials.json`
 
-#### 2c. Obtener Developer Token de Google Ads
-1. Ve a [ads.google.com](https://ads.google.com) → tu cuenta → "Tools & Settings" → "API Center"
-2. Copia tu Developer Token
+### 3. Developer Token de Google Ads
+- En Google Ads: herramienta (llave inglesa) → **API Center** → copia el token
+- El token de nivel **TEST** solo funciona con cuentas de prueba
 
-### 3. Crear el archivo de configuración
-
+### 4. Editar config.yaml
 ```bash
-mkdir -p ~/.adloop
+# macOS/Linux
+$EDITOR ~/.google-ads-mcp/config.yaml
+
+# Windows
+notepad %USERPROFILE%\.google-ads-mcp\config.yaml
 ```
 
-Crea `~/.adloop/config.yaml`:
+Ver `config/config.yaml.example` para todos los campos.
 
-```yaml
-google:
-  project_id: "tu-gcp-project-id"
-  credentials_path: "~/.adloop/credentials.json"
-  token_path: "~/.adloop/token.json"
+### 5. Primera autenticación
 
-ga4:
-  property_id: "123456789"  # Tu GA4 Property ID
-
-ads:
-  developer_token: "tu-developer-token"
-  customer_id: "1234567890"      # Sin guiones
-  login_customer_id: "1234567890"  # MCC account si aplica
-
-safety:
-  max_daily_budget: 100.0       # Límite máximo en USD
-  max_bid_increase_pct: 50      # Máximo % de aumento de bid
-  require_dry_run: true         # Siempre hacer dry-run primero
-  log_file: "~/.adloop/audit.log"
-```
-
-### 4. Primera autenticación
-
-```bash
-cd ~/adloop
-python -m adloop
-```
-
-Se abrirá el navegador para autenticar con Google. Acepta los permisos y el token se guardará en `~/.adloop/token.json`.
+El primer `python -m google_ads_mcp` abre el navegador para autenticar con Google.
+El token se guarda en `~/.google-ads-mcp/token.json` y se renueva automáticamente.
 
 ---
 
-## Configuración en Claude Desktop
+## Configurar en Claude Desktop
 
-Edita `%APPDATA%\Claude\claude_desktop_config.json` (Windows) o `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac):
+Edita `claude_desktop_config.json`:
+
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "google-ads": {
-      "command": "python",
-      "args": ["-m", "adloop"],
-      "cwd": "C:/Users/TU_USUARIO/adloop",
+      "command": "RUTA_AL_PYTHON_DEL_VENV",
+      "args": ["-m", "google_ads_mcp"],
       "env": {
-        "ADLOOP_CONFIG": "C:/Users/TU_USUARIO/.adloop/config.yaml"
+        "GOOGLE_ADS_MCP_CONFIG": "RUTA_A_CONFIG_YAML"
       }
     }
   }
 }
 ```
 
-> **Windows con uv:** usa la ruta completa al Python del virtualenv:
-> `"command": "C:/Users/TU_USUARIO/adloop/.venv/Scripts/python.exe"`
-
-Reinicia Claude Desktop.
+El instalador muestra las rutas exactas para tu sistema al terminar.
 
 ---
 
-## Configuración en Claude Code
-
-Ejecuta en tu proyecto o globalmente:
+## Configurar en Claude Code
 
 ```bash
-claude mcp add google-ads python -- -m adloop
+# Añadir globalmente
+claude mcp add google-ads \
+  --env GOOGLE_ADS_MCP_CONFIG=$HOME/.google-ads-mcp/config.yaml \
+  -- python -m google_ads_mcp
 ```
 
-O agrega manualmente a `.mcp.json` en la raíz de tu proyecto:
-
-```json
-{
-  "mcpServers": {
-    "google-ads": {
-      "command": "python",
-      "args": ["-m", "adloop"],
-      "cwd": "/ruta/a/adloop",
-      "env": {
-        "ADLOOP_CONFIG": "/ruta/a/.adloop/config.yaml"
-      }
-    }
-  }
-}
-```
+O crea `.mcp.json` en la raíz del proyecto (ver `config/mcp.json.example`).
 
 ---
 
-## Instalar las Skills en Claude Code
+## Skills disponibles
 
-Las Skills proporcionan comandos `/` para flujos de trabajo predefinidos:
+Después de instalar, usa estos comandos en Claude Code:
 
-```bash
-# Copiar las skills al directorio de Claude
-cp -r skills/google-ads-analyze ~/.claude/skills/
-cp -r skills/google-ads-manage ~/.claude/skills/
-cp -r skills/google-ads-ga4 ~/.claude/skills/
-cp -r skills/google-ads-setup ~/.claude/skills/
-```
-
-Luego en Claude Code puedes usar:
-- `/google-ads-analyze` — Analizar rendimiento
-- `/google-ads-manage` — Gestionar campañas (con safety checks)
-- `/google-ads-ga4` — Consultar GA4
-- `/google-ads-setup` — Verificar configuración
+| Comando | Descripción |
+|---------|-------------|
+| `/google-ads-setup` | Diagnóstico de configuración y guía de setup |
+| `/google-ads-analyze` | Analizar campañas, keywords y search terms |
+| `/google-ads-manage` | Gestionar campañas con safety checks |
+| `/google-ads-ga4` | Reportes y tiempo real de GA4 |
 
 ---
 
-## Herramientas MCP disponibles
+## Herramientas MCP
 
-### Lectura (Google Ads)
-| Herramienta | Descripción |
-|-------------|-------------|
-| `list_accounts` | Lista todas las cuentas accesibles |
-| `get_campaign_performance` | Métricas de campañas (impresiones, clics, costo, conversiones) |
-| `get_ad_performance` | Rendimiento a nivel de anuncio |
-| `get_keyword_performance` | Keywords con Quality Score y bid info |
-| `get_search_terms` | Términos de búsqueda reales (últimos 30 días) |
-| `run_gaql` | Query GAQL personalizada |
+### Lectura — Google Ads
+| Tool | Descripción |
+|------|-------------|
+| `list_google_ads_accounts` | Todas las cuentas accesibles |
+| `get_campaign_performance` | Métricas de campañas |
+| `get_ad_performance` | Métricas de anuncios |
+| `get_keyword_performance` | Keywords con Quality Score |
+| `get_search_terms` | Términos de búsqueda reales |
+| `run_gaql_query` | Query GAQL personalizada |
 
-### Lectura (GA4)
-| Herramienta | Descripción |
-|-------------|-------------|
-| `get_account_summaries` | Descubrir cuentas y propiedades GA4 |
-| `run_ga4_report` | Reporte personalizado con dimensiones y métricas |
-| `run_realtime_report` | Usuarios activos en tiempo real |
-| `get_tracking_events` | Eventos de tracking configurados |
+### Lectura — GA4
+| Tool | Descripción |
+|------|-------------|
+| `list_ga4_properties` | Cuentas y propiedades GA4 |
+| `run_ga4_report` | Reporte personalizado |
+| `get_realtime_users` | Usuarios activos ahora |
+| `get_ga4_events` | Eventos configurados (30 días) |
 
-### Escritura (3 pasos: draft → preview → confirm)
-| Herramienta | Descripción |
-|-------------|-------------|
-| `draft_responsive_search_ad` | Crear borrador de anuncio RSA |
-| `draft_keywords` | Agregar keywords (borrador) |
-| `add_negative_keywords` | Agregar negative keywords |
-| `pause_entity` | Pausar campaña/ad group/anuncio |
-| `enable_entity` | Activar campaña/ad group/anuncio |
-| `remove_entity` | Eliminar entidad |
-| `confirm_and_apply` | Ejecutar cambios (dry_run=true por defecto) |
+### Escritura (preview → confirm)
+| Tool | Descripción |
+|------|-------------|
+| `preview_campaign_status_change` | Vista previa: pausar/activar/eliminar campaña |
+| `preview_add_negative_keywords` | Vista previa: agregar negative keywords |
+| `preview_responsive_search_ad` | Vista previa: crear anuncio RSA |
+| `apply_change` | Aplicar cambio por plan_id (dry_run=True por defecto) |
 
 ---
 
 ## Sistema de seguridad
 
-Todas las operaciones de escritura siguen este flujo:
-
 ```
 Usuario pide cambio
     ↓
-draft_*() → Genera plan con UUID, valida límites
+preview_*()  →  valida límites, genera plan con ID corto
     ↓
-Vista previa → Claude muestra qué cambiará
+Claude muestra preview, pide confirmación
     ↓
-confirm_and_apply(plan_id, dry_run=True)  ← Simulación primero
+apply_change(plan_id, dry_run=True)   ← simulación primero
     ↓
-confirm_and_apply(plan_id, dry_run=False) ← Solo con confirmación explícita
+apply_change(plan_id, dry_run=False)  ← solo con OK explícito del usuario
 ```
 
 **Protecciones activas:**
-- Cap de presupuesto diario máximo
-- Límite de aumento de bids
-- Operaciones bloqueadas configurables
-- Log de auditoría de todas las acciones
-- Nuevos anuncios se crean en estado **pausado** por defecto
-
----
-
-## Ejemplos de uso
-
-### En Claude Code o Claude Desktop:
-
-```
-Muéstrame el rendimiento de mis campañas del último mes para la cuenta 1234567890
-
-¿Cuáles son los términos de búsqueda con mayor costo y sin conversiones?
-
-Pausa la campaña "Brand - Exact" (ID: 987654321) de la cuenta 1234567890
-
-Crea un anuncio RSA para el grupo de anuncios 555444333 con estas headlines: [...]
-
-¿Cuántos usuarios activos hay en GA4 ahora mismo?
-```
+- Cap de presupuesto diario máximo (configurable)
+- Límite de % de aumento de bids
+- Operaciones bloqueadas por lista
+- Log de auditoría en `~/.google-ads-mcp/audit.log`
+- RSAs nuevos creados en estado **PAUSED**
 
 ---
 
@@ -249,25 +202,34 @@ Crea un anuncio RSA para el grupo de anuncios 555444333 con estas headlines: [..
 
 ```
 google-ads-mcp/
-├── README.md
-├── .gitignore
-├── install.sh              # Script de instalación automática
+├── src/google_ads_mcp/
+│   ├── server.py       # FastMCP: definición de todas las tools
+│   ├── ads.py          # Google Ads API (lectura y escritura)
+│   ├── ga4.py          # Google Analytics 4 API (solo lectura)
+│   ├── auth.py         # OAuth 2.0 con token caching
+│   ├── config.py       # Carga de config.yaml
+│   └── safety.py       # Guards, plan store, audit log
 ├── skills/
-│   ├── google-ads-analyze/ # Skill de análisis (/google-ads-analyze)
-│   ├── google-ads-manage/  # Skill de gestión (/google-ads-manage)
-│   ├── google-ads-ga4/     # Skill de GA4 (/google-ads-ga4)
-│   └── google-ads-setup/   # Skill de setup (/google-ads-setup)
+│   ├── google-ads-analyze/SKILL.md
+│   ├── google-ads-manage/SKILL.md
+│   ├── google-ads-ga4/SKILL.md
+│   └── google-ads-setup/SKILL.md
 ├── config/
-│   ├── adloop-config.yaml.example
+│   ├── config.yaml.example
 │   ├── claude-desktop-config.json.example
 │   └── mcp.json.example
-└── docs/
-    └── troubleshooting.md
+├── docs/troubleshooting.md
+├── install.sh          # macOS / Linux
+├── install.ps1         # Windows PowerShell
+├── pyproject.toml
+└── LICENSE             # MIT
 ```
 
 ---
 
 ## Créditos
 
-- **AdLoop** por [kLOsk](https://github.com/kLOsk/adloop) — MIT License
-- Integración y Skills por Gabriel Urrutia
+- **Gabriel Urrutia** ([@gabogabucho](https://x.com/gabogabucho)) — autor
+- Inspirado en [AdLoop](https://github.com/kLOsk/adloop) por [kLOsk](https://github.com/kLOsk)
+
+MIT License — ver [LICENSE](LICENSE).

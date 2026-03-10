@@ -1,230 +1,97 @@
 # Google Ads MCP Setup
 
-Guía para verificar y configurar el servidor MCP de Google Ads (adloop) en Claude Desktop y Claude Code.
+Diagnóstico y configuración del MCP `google-ads` para Claude Code y Claude Desktop.
 
 ## Cuándo usar esta skill
 
-Úsala cuando el usuario:
-- Quiere configurar el MCP por primera vez
-- Tiene problemas de conexión con el servidor
-- Quiere verificar que todo esté correctamente instalado
-- Necesita ayuda con las credenciales de Google
-
----
+- Configurar el MCP por primera vez
+- Problemas de conexión con el servidor
+- Verificar que las credenciales funcionan
 
 ## Diagnóstico rápido
 
-Primero, verifica si el MCP está conectado intentando:
-
-```python
-list_accounts()
+Intenta primero:
+```
+list_google_ads_accounts()
 ```
 
-**Si funciona:** el MCP está configurado correctamente. Pregunta qué quiere hacer con sus cuentas.
+- **Funciona** → MCP configurado. Pregunta qué quiere hacer.
+- **"tool not found"** → servidor MCP no registrado. Ver sección de configuración.
+- **"authentication error"** → renovar credenciales Google.
+- **"Config not found"** → falta `~/.google-ads-mcp/config.yaml`.
 
-**Si falla con "tool not found":** el servidor MCP no está registrado. Sigue el flujo de instalación.
+## Instalación
 
-**Si falla con "authentication error":** las credenciales de Google necesitan renovarse.
-
-**Si falla con "config not found":** falta el archivo `~/.adloop/config.yaml`.
-
----
-
-## Flujo de instalación paso a paso
-
-### 1. Verificar Python y uv
-
-```bash
-python --version  # Debe ser 3.11+
-uv --version      # Gestor de paquetes
+### Windows
+```powershell
+git clone https://github.com/gabogabucho/google-ads-mcp.git
+cd google-ads-mcp
+powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Si no tiene uv instalado:
-- **Mac/Linux:** `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- **Windows:** `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
-
-### 2. Clonar e instalar AdLoop
-
+### macOS / Linux
 ```bash
-git clone https://github.com/kLOsk/adloop.git ~/adloop
-cd ~/adloop
+git clone https://github.com/gabogabucho/google-ads-mcp.git
+cd google-ads-mcp
+bash install.sh
+```
+
+## Configuración manual
+
+### 1. Crear credenciales en Google Cloud Console
+1. Ir a [console.cloud.google.com](https://console.cloud.google.com)
+2. Habilitar: Google Ads API, Google Analytics Data API, Google Analytics Admin API
+3. APIs & Services → Credentials → Create → OAuth 2.0 Client ID → Desktop app
+4. Descargar JSON → guardar como `~/.google-ads-mcp/credentials.json`
+
+### 2. Instalar dependencias
+```bash
+cd google-ads-mcp
 uv sync
 ```
 
-Verificar instalación:
+### 3. Crear config.yaml
+Copiar `config/config.yaml.example` a `~/.google-ads-mcp/config.yaml` y rellenar.
+
+### 4. Primera autenticación
 ```bash
-~/adloop/.venv/bin/python -m adloop --help
+# macOS/Linux
+~/.local/share/google-ads-mcp/.venv/bin/python -m google_ads_mcp
+
+# Windows
+%USERPROFILE%\google-ads-mcp\.venv\Scripts\python.exe -m google_ads_mcp
 ```
 
-### 3. Crear configuración de Google Cloud
-
-Guía al usuario por estos pasos:
-
-**a) Google Cloud Console:**
-1. `console.cloud.google.com` → crear proyecto nuevo
-2. "APIs & Services" → "Enable APIs" → buscar y habilitar:
-   - "Google Ads API"
-   - "Google Analytics Data API"
-   - "Google Analytics Admin API"
-
-**b) Credenciales OAuth:**
-1. "APIs & Services" → "Credentials" → "+ Create Credentials" → "OAuth 2.0 Client ID"
-2. Application type: **Desktop app**
-3. Descargar JSON → guardar como `~/.adloop/credentials.json`
-
-**c) Developer Token de Google Ads:**
-1. `ads.google.com` → cuenta → herramienta (llave inglesa) → "API Center"
-2. Si no existe, solicitar acceso (puede tardar días)
-3. Para pruebas: usar token de nivel TEST (sin cambios reales)
-
-### 4. Crear config.yaml
-
-```bash
-mkdir -p ~/.adloop
-```
-
-Crear `~/.adloop/config.yaml` con los valores del usuario:
-
-```yaml
-google:
-  project_id: "tu-gcp-project-id"
-  credentials_path: "~/.adloop/credentials.json"
-  token_path: "~/.adloop/token.json"
-
-ga4:
-  property_id: "123456789"
-
-ads:
-  developer_token: "ABcDEfGHiJkLmNoPQRsTuVwX"
-  customer_id: "1234567890"
-  login_customer_id: "1234567890"  # MCC si aplica
-
-safety:
-  max_daily_budget: 100.0
-  max_bid_increase_pct: 50
-  require_dry_run: true
-  log_file: "~/.adloop/audit.log"
-```
-
-**Importante:** `customer_id` sin guiones (1234567890, no 123-456-7890)
-
-### 5. Primera autenticación
-
-```bash
-~/adloop/.venv/bin/python -m adloop
-```
-
-Se abrirá el navegador. Autenticar con la cuenta Google que tiene acceso a Google Ads. Esto guarda `~/.adloop/token.json`.
-
-### 6. Configurar en Claude Desktop
-
-Editar el archivo de configuración de Claude Desktop:
-
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-**Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-
+### 5. Configurar Claude Desktop
+Agregar a `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "google-ads": {
-      "command": "C:/Users/USUARIO/adloop/.venv/Scripts/python.exe",
-      "args": ["-m", "adloop"],
-      "env": {
-        "ADLOOP_CONFIG": "C:/Users/USUARIO/.adloop/config.yaml"
-      }
+      "command": "RUTA_PYTHON_VENV",
+      "args": ["-m", "google_ads_mcp"],
+      "env": { "GOOGLE_ADS_MCP_CONFIG": "RUTA_CONFIG_YAML" }
     }
   }
 }
 ```
+El instalador muestra las rutas exactas al terminar.
 
-**Mac/Linux:**
-```json
-{
-  "mcpServers": {
-    "google-ads": {
-      "command": "/Users/USUARIO/adloop/.venv/bin/python",
-      "args": ["-m", "adloop"],
-      "env": {
-        "ADLOOP_CONFIG": "/Users/USUARIO/.adloop/config.yaml"
-      }
-    }
-  }
-}
-```
-
-Reiniciar Claude Desktop completamente.
-
-### 7. Configurar en Claude Code
-
-Opción A - Via CLI (recomendado):
+### 6. Configurar Claude Code
 ```bash
 claude mcp add google-ads \
-  --env ADLOOP_CONFIG=$HOME/.adloop/config.yaml \
-  -- python -m adloop
+  --env GOOGLE_ADS_MCP_CONFIG=$HOME/.google-ads-mcp/config.yaml \
+  -- python -m google_ads_mcp
 ```
 
-Opción B - Archivo `.mcp.json` en el proyecto:
-```json
-{
-  "mcpServers": {
-    "google-ads": {
-      "command": "python",
-      "args": ["-m", "adloop"],
-      "cwd": "/ruta/a/adloop",
-      "env": {
-        "ADLOOP_CONFIG": "/ruta/a/.adloop/config.yaml"
-      }
-    }
-  }
-}
-```
+## Solución de problemas frecuentes
 
-### 8. Instalar Skills en Claude Code
+| Síntoma | Solución |
+|---------|----------|
+| `ModuleNotFoundError` | Usar ruta absoluta al Python del venv |
+| `FileNotFoundError: credentials.json` | Verificar ruta en `google.credentials_path` |
+| `Token expired` | Borrar `token.json` y re-autenticar |
+| `Developer token not approved` | Solicitar aprobación en Google Ads → API Center |
+| `Customer not found` | Verificar ID sin guiones (1234567890, no 123-456-7890) |
 
-```bash
-SKILLS_DIR=~/.claude/skills
-mkdir -p $SKILLS_DIR
-
-# Desde el directorio del proyecto google-ads-mcp
-cp -r skills/google-ads-analyze $SKILLS_DIR/
-cp -r skills/google-ads-manage $SKILLS_DIR/
-cp -r skills/google-ads-ga4 $SKILLS_DIR/
-cp -r skills/google-ads-setup $SKILLS_DIR/
-```
-
----
-
-## Verificación final
-
-Una vez configurado, prueba cada skill:
-
-```
-/google-ads-setup   → este diagnóstico
-/google-ads-analyze → pide rendimiento de campañas
-/google-ads-ga4     → pide usuarios activos en tiempo real
-/google-ads-manage  → pide pausar una campaña (solo draft, no confirmes)
-```
-
-Si `list_accounts()` devuelve cuentas, ¡todo está funcionando!
-
----
-
-## Solución de problemas comunes
-
-| Síntoma | Causa | Solución |
-|---------|-------|----------|
-| `ModuleNotFoundError: adloop` | Virtualenv no activo o adloop no instalado | Verificar ruta de Python en config |
-| `FileNotFoundError: credentials.json` | Ruta incorrecta en config.yaml | Verificar que `credentials_path` apunte al archivo |
-| `Token expired` | Token de OAuth vencido | Borrar `token.json` y re-autenticar |
-| `Access denied: Developer Token` | Token en nivel TEST | Solicitar acceso a producción en Google Ads |
-| `Customer not found` | customer_id incorrecto | Verificar ID sin guiones en Google Ads dashboard |
-| `MCP server not responding` | Ruta de Python incorrecta | Usar ruta absoluta al .venv/bin/python |
-
----
-
-## Seguridad
-
-- **Nunca** compartas `credentials.json`, `token.json` ni `config.yaml` en Git
-- Agrega estos archivos a `.gitignore`
-- Los archivos en `~/.adloop/` contienen credenciales sensibles
-- El `developer_token` da acceso a toda la API de Google Ads — trátalo como una contraseña
+Ver `docs/troubleshooting.md` para más casos.

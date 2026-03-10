@@ -1,0 +1,43 @@
+# google-ads-mcp — Configuración
+# Copia esto a ~/.google-ads-mcp/config.yaml y rellena con tus datos.
+# NUNCA subas este archivo con datos reales a Git.
+
+google:
+  # Ruta al archivo credentials.json (OAuth 2.0 Desktop app)
+  # Descarga desde: console.cloud.google.com → APIs & Services → Credentials
+  credentials_path: "~/.google-ads-mcp/credentials.json"
+
+  # Token OAuth generado automáticamente en la primera autenticación
+  token_path: "~/.google-ads-mcp/token.json"
+
+ga4:
+  # ID numérico de tu propiedad GA4
+  # Encuéntralo en: analytics.google.com → Admin → Property Settings
+  property_id: "123456789"
+
+ads:
+  # Developer Token de Google Ads API
+  # Encuéntralo en: ads.google.com → Tools → API Center
+  developer_token: "ABcDEfGHiJkLmNoPQRsTuVwX"
+
+  # Customer ID sin guiones (ej: 123-456-7890 → 1234567890)
+  customer_id: "1234567890"
+
+  # Solo si accedes via MCC (cuenta manager). Si no, deja igual que customer_id.
+  login_customer_id: "1234567890"
+
+safety:
+  # Presupuesto diario máximo (USD) permitido en operaciones de escritura
+  max_daily_budget_usd: 100.0
+
+  # Porcentaje máximo de aumento de bid por operación
+  max_bid_increase_pct: 50
+
+  # Siempre exigir preview antes de aplicar cambios
+  require_preview: true
+
+  # Archivo de log de auditoría (se crea automáticamente)
+  audit_log_path: "~/.google-ads-mcp/audit.log"
+
+  # Operaciones bloqueadas. Opciones: "pause", "enable", "remove"
+  blocked_operations: []

@@ -1,142 +1,80 @@
 # Google Ads Analyzer
 
-Analiza el rendimiento de cuentas, campañas, anuncios y keywords en Google Ads usando el servidor MCP adloop.
+Analiza el rendimiento de cuentas, campañas, anuncios y keywords usando las tools del MCP `google-ads`.
 
 ## Cuándo usar esta skill
 
-Úsala cuando el usuario pida:
 - Ver rendimiento de campañas, anuncios o keywords
-- Analizar términos de búsqueda
-- Comparar métricas entre periodos
-- Identificar campañas con bajo rendimiento o alto desperdicio
+- Analizar términos de búsqueda y encontrar negative keywords
+- Comparar métricas, identificar desperdicio de presupuesto
 - Ejecutar queries GAQL personalizadas
-- Auditar una cuenta de Google Ads
 
 ## Flujo de trabajo
 
 ### Paso 1: Identificar la cuenta
 
-Si el usuario no proporcionó un `customer_id`, usa primero:
+Si el usuario no dio un `customer_id`:
 ```
-list_accounts()
+list_google_ads_accounts()
 ```
-Muestra la lista y pide al usuario que elija la cuenta a analizar.
+Muestra la lista y pide que elija.
 
-### Paso 2: Definir el rango de fechas
+### Paso 2: Definir rango de fechas
 
-Si no se especifica, usa los últimos 30 días:
-- `date_range_start`: hace 30 días en formato `YYYY-MM-DD`
-- `date_range_end`: hoy en formato `YYYY-MM-DD`
+Por defecto usa los últimos 30 días. Formato: `YYYY-MM-DD`.
 
-Periodos comunes:
-- Última semana: últimos 7 días
-- Último mes: últimos 30 días
-- Este mes: desde el primer día del mes actual
-- Trimestre: últimos 90 días
+### Paso 3: Obtener datos
 
-### Paso 3: Obtener los datos
-
-Según lo que pida el usuario, llama a la herramienta correspondiente:
-
-**Rendimiento de campañas:**
+**Campañas:**
 ```
-get_campaign_performance(
-  customer_id="1234567890",
-  date_range_start="2024-01-01",
-  date_range_end="2024-01-31"
-)
+get_campaign_performance(customer_id="1234567890", start_date="2024-01-01", end_date="2024-01-31")
 ```
-Métricas disponibles: impresiones, clics, costo, conversiones, CTR, CPC, CPA, ROAS.
 
-**Rendimiento de anuncios:**
+**Anuncios:**
 ```
-get_ad_performance(
-  customer_id="1234567890",
-  date_range_start="2024-01-01",
-  date_range_end="2024-01-31"
-)
+get_ad_performance(customer_id="1234567890", start_date="2024-01-01", end_date="2024-01-31")
 ```
-Incluye headlines, descriptions, URLs y estado del anuncio.
 
-**Rendimiento de keywords:**
+**Keywords:**
 ```
-get_keyword_performance(
-  customer_id="1234567890",
-  date_range_start="2024-01-01",
-  date_range_end="2024-01-31"
-)
+get_keyword_performance(customer_id="1234567890", start_date="2024-01-01", end_date="2024-01-31")
 ```
-Incluye Quality Score, match type, bid actual y competitivo.
 
 **Términos de búsqueda:**
 ```
-get_search_terms(
-  customer_id="1234567890",
-  date_range_start="2024-01-01",
-  date_range_end="2024-01-31"
-)
+get_search_terms(customer_id="1234567890", start_date="2024-01-01", end_date="2024-01-31")
 ```
-Retorna hasta 200 términos. Ideal para encontrar negativos potenciales.
 
 **Query GAQL personalizada:**
 ```
-run_gaql(
-  query="SELECT campaign.name, metrics.clicks, metrics.cost_micros FROM campaign WHERE segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 10",
+run_gaql_query(
   customer_id="1234567890",
-  output_format="table"
+  query="SELECT campaign.name, metrics.clicks FROM campaign WHERE segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 10"
 )
 ```
 
-### Paso 4: Analizar y presentar resultados
+### Paso 4: Presentar resultados
 
-Siempre presenta los resultados de forma estructurada:
-
-1. **Resumen ejecutivo**: métricas clave y tendencias principales
-2. **Top performers**: las 5 mejores entidades por la métrica principal
-3. **Problemas detectados**: alto costo sin conversiones, bajo CTR, Quality Score bajo
-4. **Recomendaciones**: acciones concretas y priorizadas
+1. **Resumen ejecutivo**: métricas clave y tendencias
+2. **Top performers**: las mejores entidades por la métrica principal
+3. **Alertas**: CTR bajo, QS < 5, alto costo sin conversiones
+4. **Recomendaciones**: acciones priorizadas
 
 ## Análisis frecuentes
 
 ### Diagnóstico de cuenta
-Llama en este orden:
-1. `get_campaign_performance` → ver estado general
-2. `get_keyword_performance` → identificar keywords con QS bajo
-3. `get_search_terms` → encontrar términos irrelevantes
-4. Presenta: campanias activas, gasto total, CPA promedio, principales problemas
+1. `get_campaign_performance` → estado general
+2. `get_keyword_performance` → keywords con QS bajo
+3. `get_search_terms` → términos irrelevantes
 
-### Análisis de desperdicio
-Busca con GAQL:
+### Keywords candidatas a negativas
+Buscar con GAQL keywords con conversiones = 0 y costo > $5:
 ```sql
-SELECT campaign.name, ad_group.name, keywords.keyword.text,
-       metrics.clicks, metrics.cost_micros, metrics.conversions
+SELECT ad_group_criterion.keyword.text, metrics.cost_micros, metrics.conversions
 FROM keyword_view
-WHERE metrics.conversions = 0
-  AND metrics.cost_micros > 5000000
+WHERE metrics.conversions = 0 AND metrics.cost_micros > 5000000
   AND segments.date DURING LAST_30_DAYS
 ORDER BY metrics.cost_micros DESC
 ```
 
-### Análisis de términos de búsqueda
-1. Ejecuta `get_search_terms`
-2. Identifica términos con clics pero sin conversiones y alto costo
-3. Identifica términos irrelevantes para el negocio
-4. Sugiere agregarlos como negativos (ofrece usar `/google-ads-manage` para aplicarlos)
-
-### Rendimiento por dispositivo
-```sql
-SELECT campaign.name, segments.device, metrics.clicks,
-       metrics.cost_micros, metrics.conversions
-FROM campaign
-WHERE segments.date DURING LAST_30_DAYS
-```
-
-## Formato de respuesta
-
-Usa tablas markdown para datos tabulares. Resalta valores problemáticos:
-- CPA > objetivo: marcar como alto
-- CTR < 2% en Search: marcar como bajo
-- QS < 5: marcar como crítico
-- Campañas sin conversiones en 30 días: marcar para revisión
-
-Al final siempre ofrece: "¿Quieres que aplique alguno de estos cambios? Puedo usar `/google-ads-manage` para hacerlo de forma segura."
+Al terminar, ofrece: "¿Quieres que aplique algún cambio? Puedo usar `/google-ads-manage` de forma segura."
