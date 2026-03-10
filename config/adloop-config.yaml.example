@@ -1,0 +1,49 @@
+# AdLoop Configuration - Copia esto a ~/.adloop/config.yaml
+# Rellena con tus propios valores. NUNCA subas este archivo con datos reales a Git.
+
+google:
+  # ID de tu Google Cloud Project
+  project_id: "mi-proyecto-gcp-123456"
+
+  # Ruta al archivo credentials.json descargado desde Google Cloud Console
+  # Descarga desde: console.cloud.google.com → APIs & Services → Credentials → OAuth 2.0
+  credentials_path: "~/.adloop/credentials.json"
+
+  # Ruta donde se guardará el token OAuth (se genera automáticamente)
+  token_path: "~/.adloop/token.json"
+
+ga4:
+  # ID de tu propiedad GA4
+  # Lo encuentras en: analytics.google.com → Admin → Property Settings → Property ID
+  property_id: "123456789"
+
+ads:
+  # Developer Token de Google Ads API
+  # Lo encuentras en: ads.google.com → Tools → API Center
+  developer_token: "ABcDEfGHiJkLmNoPQRsTuVwX"
+
+  # Customer ID de la cuenta de Google Ads (sin guiones)
+  # Ejemplo: si en el dashboard aparece 123-456-7890, escribe 1234567890
+  customer_id: "1234567890"
+
+  # Login Customer ID: solo si accedes via MCC (cuenta manager)
+  # Si accedes directo a la cuenta de cliente, pon el mismo customer_id
+  login_customer_id: "1234567890"
+
+safety:
+  # Presupuesto diario máximo permitido para cambios (USD)
+  # Operaciones que superen este monto serán rechazadas
+  max_daily_budget: 100.0
+
+  # Porcentaje máximo de aumento de bid permitido en una sola operación
+  max_bid_increase_pct: 50
+
+  # Siempre ejecutar dry-run antes de aplicar cambios reales
+  require_dry_run: true
+
+  # Archivo de log de auditoría (se crea automáticamente)
+  log_file: "~/.adloop/audit.log"
+
+  # Lista de operaciones bloqueadas (opcional)
+  # Opciones: "remove", "pause_campaign", "modify_budget"
+  blocked_operations: []

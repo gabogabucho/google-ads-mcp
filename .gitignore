@@ -1,0 +1,44 @@
+# Credenciales y tokens — NUNCA subir a Git
+*.json
+!config/*.json.example
+!config/*.example
+*.yaml
+!config/*.yaml.example
+*.yml
+!config/*.yml.example
+
+# Específicos de AdLoop
+credentials.json
+token.json
+config.yaml
+audit.log
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+dist/
+build/
+.eggs/
+
+# Entorno
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

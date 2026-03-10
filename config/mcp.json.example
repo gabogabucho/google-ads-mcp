@@ -1,0 +1,15 @@
+{
+  "_comment": "Guarda esto como .mcp.json en la raíz de tu proyecto para Claude Code.",
+  "_comment_global": "O usa: claude mcp add google-ads -- python -m adloop",
+
+  "mcpServers": {
+    "google-ads": {
+      "command": "python",
+      "args": ["-m", "adloop"],
+      "cwd": "/ruta/absoluta/a/adloop",
+      "env": {
+        "ADLOOP_CONFIG": "/ruta/absoluta/a/.adloop/config.yaml"
+      }
+    }
+  }
+}
