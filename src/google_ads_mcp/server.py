@@ -24,14 +24,7 @@ from .safety import (
     get_plan,
 )
 
-mcp = FastMCP(
-    "google-ads-mcp",
-    description=(
-        "Manage Google Ads campaigns and query Google Analytics 4 data. "
-        "Read operations are safe and instant. Write operations use a "
-        "preview → confirm flow to prevent accidental changes."
-    ),
-)
+mcp = FastMCP("google-ads-mcp")
 
 
 # ── Config (loaded once at startup) ──────────────────────────────────────────
